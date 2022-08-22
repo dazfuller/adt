@@ -10,28 +10,31 @@ import (
 )
 
 const (
-	resourceId   = "https://digitaltwins.azure.net"
-	authorityUrl = "https://login.microsoftonline.com"
-	apiVersion   = "2020-10-31"
+	resourceId   = "https://digitaltwins.azure.net"    // The azure resource identifier for Azure Digital Twins
+	authorityUrl = "https://login.microsoftonline.com" // Authority URL for user authentication
+	apiVersion   = "2020-10-31"                        // Digital Twin Rest API version to use
 )
 
+// An authentication method defined how the application will authenticate with an Azure Digital Twin instance
 type authenticationMethod struct {
-	useAzureCli  bool
-	tenantId     string
-	clientId     string
-	clientSecret string
+	useAzureCli  bool   // Indicates if the Azure CLI credential should be used
+	tenantId     string // When using client credentials, specifies the Azure tenant to authenticate against
+	clientId     string // The id of the client used for client credential authentication
+	clientSecret string // The secret of the client used for client credential authentication
 }
 
+// Describes all the configuration required for interacting with an Azure Digital Twin instance
 type twinConfiguration struct {
-	Url          url.URL
-	useAzureCli  bool
-	clientId     string
-	clientSecret string
-	tenantId     string
-	scopes       []string
-	authorityUrl url.URL
+	endpoint     url.URL  // The URL of the Azure Digital Twin instance
+	useAzureCli  bool     // Indicates if the Azure CLI credential should be used
+	tenantId     string   // When using client credentials, specifies the Azure tenant to authenticate against
+	clientId     string   // The id of the client used for client credential authentication
+	clientSecret string   // The secret of the client used for client credential authentication
+	scopes       []string // The scopes to create an authentication token for
+	authorityUrl url.URL  // Authority URL required for authenticating the user
 }
 
+// Creates a new twinConfiguration instance using the endpoint and authenticationMethod information provided
 func newTwinConfiguration(endpoint string, authenticationMethod authenticationMethod) (*twinConfiguration, error) {
 	authority, _ := url.Parse(authorityUrl)
 	var scopes []string
@@ -59,16 +62,19 @@ func newTwinConfiguration(endpoint string, authenticationMethod authenticationMe
 	return &config, nil
 }
 
+// Validates and sets the Azure Digital Twin endpoint for the twinConfiguration instance. Attempting to set
+// an invalid url will result in an error.
 func (configuration *twinConfiguration) setAdtEndpoint(endpoint string) error {
 	adtEndpointUrl, err := url.Parse(endpoint)
 	if err != nil {
 		return fmt.Errorf("unable to set digital twin endpoint: %s", err)
 	}
 
-	configuration.Url = *adtEndpointUrl
+	configuration.endpoint = *adtEndpointUrl
 	return nil
 }
 
+// Gets a bearer token for the twinConfiguration instance
 func (configuration *twinConfiguration) getBearerToken() (*string, error) {
 	var credentials azcore.TokenCredential
 	var err error
