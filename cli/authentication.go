@@ -1,4 +1,4 @@
-package adt
+package cli
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 const (
 	resourceId   = "https://digitaltwins.azure.net"    // The azure resource identifier for Azure Digital Twins
 	authorityUrl = "https://login.microsoftonline.com" // Authority URL for user authentication
-	apiVersion   = "2020-10-31"                        // Digital Twin Rest API version to use
 )
 
 // An authentication method defined how the application will authenticate with an Azure Digital Twin instance
@@ -75,7 +74,7 @@ func (configuration *twinConfiguration) setAdtEndpoint(endpoint string) error {
 }
 
 // Gets a bearer token for the twinConfiguration instance
-func (configuration *twinConfiguration) getBearerToken() (*string, error) {
+func (configuration *twinConfiguration) getBearerToken() (*azcore.AccessToken, error) {
 	var credentials azcore.TokenCredential
 	var err error
 	if configuration.useAzureCli {
@@ -96,5 +95,5 @@ func (configuration *twinConfiguration) getBearerToken() (*string, error) {
 		return nil, fmt.Errorf("unable to acquire token for Azure Digital Twin scope: %s", err)
 	}
 
-	return &token.Token, nil
+	return &token, nil
 }
