@@ -14,12 +14,12 @@ const (
 	authorityUrl = "https://login.microsoftonline.com" // Authority URL for user authentication
 )
 
-// An authentication method defined how the application will authenticate with an Azure Digital Twin instance
-type authenticationMethod struct {
-	useAzureCli  bool   // Indicates if the Azure CLI credential should be used
-	tenantId     string // When using client credentials, specifies the Azure tenant to authenticate against
-	clientId     string // The id of the client used for client credential authentication
-	clientSecret string // The secret of the client used for client credential authentication
+// AuthenticationMethod defined how the application will authenticate with an Azure Digital Twin instance
+type AuthenticationMethod struct {
+	UseAzureCli  bool   // Indicates if the Azure CLI credential should be used
+	TenantId     string // When using client credentials, specifies the Azure tenant to authenticate against
+	ClientId     string // The id of the client used for client credential authentication
+	ClientSecret string // The secret of the client used for client credential authentication
 }
 
 // Describes all the configuration required for interacting with an Azure Digital Twin instance
@@ -33,12 +33,12 @@ type twinConfiguration struct {
 	authorityUrl url.URL  // Authority URL required for authenticating the user
 }
 
-// Creates a new twinConfiguration instance using the endpoint and authenticationMethod information provided
-func newTwinConfiguration(endpoint string, authenticationMethod authenticationMethod) (*twinConfiguration, error) {
+// Creates a new twinConfiguration instance using the endpoint and AuthenticationMethod information provided
+func newTwinConfiguration(endpoint string, authenticationMethod *AuthenticationMethod) (*twinConfiguration, error) {
 	authority, _ := url.Parse(authorityUrl)
 	var scopes []string
 
-	if authenticationMethod.useAzureCli {
+	if authenticationMethod.UseAzureCli {
 		scopes = []string{resourceId}
 	} else {
 		scopes = []string{fmt.Sprintf("%s/.default", resourceId)}
@@ -47,10 +47,10 @@ func newTwinConfiguration(endpoint string, authenticationMethod authenticationMe
 	config := twinConfiguration{
 		scopes:       scopes,
 		authorityUrl: *authority,
-		useAzureCli:  authenticationMethod.useAzureCli,
-		tenantId:     authenticationMethod.tenantId,
-		clientId:     authenticationMethod.clientId,
-		clientSecret: authenticationMethod.clientSecret,
+		useAzureCli:  authenticationMethod.UseAzureCli,
+		tenantId:     authenticationMethod.TenantId,
+		clientId:     authenticationMethod.ClientId,
+		clientSecret: authenticationMethod.ClientSecret,
 	}
 
 	err := config.setAdtEndpoint(endpoint)
@@ -80,7 +80,7 @@ func (configuration *twinConfiguration) getBearerToken() (*azcore.AccessToken, e
 	if configuration.useAzureCli {
 		credentials, err = azidentity.NewAzureCLICredential(nil)
 	} else {
-		credentials, err = azidentity.NewClientSecretCredential(configuration.tenantId, configuration.clientSecret, configuration.clientSecret, nil)
+		credentials, err = azidentity.NewClientSecretCredential(configuration.tenantId, configuration.clientId, configuration.clientSecret, nil)
 	}
 
 	if err != nil {
