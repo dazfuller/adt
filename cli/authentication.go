@@ -6,6 +6,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"log"
 	"net/url"
 )
 
@@ -89,6 +90,8 @@ func (configuration *twinConfiguration) getBearerToken() (*azcore.AccessToken, e
 
 	ctx := context.Background()
 	tokenRequestOptions := policy.TokenRequestOptions{Scopes: configuration.scopes}
+
+	log.Print("Getting bearer token")
 
 	token, err := credentials.GetToken(ctx, tokenRequestOptions)
 	if err != nil {

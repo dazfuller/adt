@@ -1,6 +1,9 @@
 package cli
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 type processingStatus int
 
@@ -97,4 +100,50 @@ func (entry *modelEntry) getModelDependencies() []string {
 	}
 
 	return distinct
+}
+
+// Iterates over the collection of models and updates each one to hold a reference to its dependent models
+func setModelDependencies(models []*modelEntry) {
+	for _, entry := range models {
+		for _, dependencyId := range entry.getModelDependencies() {
+			for _, dependent := range models {
+				if dependencyId == dependent.modelId {
+					entry.dependencies = append(entry.dependencies, dependent)
+				}
+			}
+		}
+	}
+}
+
+// Returns a collection of models which have been sorted topologically
+func sortModels(models []*modelEntry) []*modelEntry {
+	results := make([]*modelEntry, 0)
+
+	for _, entry := range models {
+		if entry.status == processed {
+			continue
+		}
+
+		visit(entry, &results)
+	}
+
+	return results
+}
+
+// Visits a specific modelEntry and ensures it and it's dependencies are added to the sorted collection
+func visit(entry *modelEntry, results *[]*modelEntry) {
+	if entry.status == processing {
+		log.Fatalf("Detected a circular dependency for model %s", entry.modelId)
+	} else if entry.status == processed {
+		return
+	}
+
+	entry.status = processing
+
+	for _, dependency := range entry.dependencies {
+		visit(dependency, results)
+	}
+
+	entry.status = processed
+	*results = append(*results, entry)
 }

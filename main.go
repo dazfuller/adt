@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/dazfuller/adt/cli"
+	"io"
+	"log"
 	"os"
 	"strings"
 )
@@ -77,18 +79,21 @@ func main() {
 	var tenantId string
 	var clientId string
 	var clientSecret string
+	var verbose bool
 
 	var selectedFlagSet *flag.FlagSet = nil
 
 	listCommand := flag.NewFlagSet("list", flag.ExitOnError)
+	clearCommand := flag.NewFlagSet("clear", flag.ExitOnError)
 
 	// Set up common flags
-	for _, fs := range []*flag.FlagSet{listCommand} {
+	for _, fs := range []*flag.FlagSet{listCommand, clearCommand} {
 		fs.StringVar(&adtEndpoint, "endpoint", "", "Endpoint of the Azure digital twin instance (e.g. https://my-twin.api.weu.digitaltwins.azure.net)")
 		fs.BoolVar(&useAzureCliCredentials, "use-cli", false, "Indicates if the credentials of the Azure CLI should be used")
 		fs.StringVar(&tenantId, "tenant", "", "ID of the tenant to authenticate the client credentials against")
 		fs.StringVar(&clientId, "client-id", "", "ID (app id) of the app registration being used for authentication")
 		fs.StringVar(&clientSecret, "client-secret", "", "Secret for the app registration being used for authentication")
+		fs.BoolVar(&verbose, "verbose", false, "Indicates if logging output should be displayed")
 	}
 
 	if len(os.Args) < 2 {
@@ -103,6 +108,13 @@ func main() {
 		}
 		_ = listCommand.Parse(os.Args[2:])
 		selectedFlagSet = listCommand
+	case "clear":
+		if len(os.Args) < 4 {
+			clearCommand.Usage()
+			os.Exit(-1)
+		}
+		_ = clearCommand.Parse(os.Args[2:])
+		selectedFlagSet = clearCommand
 	default:
 		highLevelUsageAndExit()
 	}
@@ -114,8 +126,18 @@ func main() {
 		os.Exit(-1)
 	}
 
+	if !verbose {
+		log.SetOutput(io.Discard)
+	}
+
 	if listCommand.Parsed() {
 		err := cli.ListModels(adtEndpoint, authenticationMethod)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(-2)
+		}
+	} else if clearCommand.Parsed() {
+		err := cli.ClearModels(adtEndpoint, authenticationMethod)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(-2)
