@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 )
@@ -127,6 +129,67 @@ func (client *client) clearModels(models []*modelEntry) error {
 	}
 
 	return nil
+}
+
+// Uploads all models to the Azure Digital Twin instance
+func (client *client) uploadModels(models []*modelEntry) error {
+	var batches [][]*modelEntry
+	modelCount := len(models)
+
+	// Sort the models into batches based on the limits
+	if modelCount < maxModelsApiLimit {
+		batches = make([][]*modelEntry, 1)
+	} else {
+		batchCount := int(math.Ceil(float64(modelCount) / float64(maxModelsPerBatch)))
+		batches = make([][]*modelEntry, batchCount)
+		for i := 0; i < batchCount; i++ {
+			start := i * maxModelsPerBatch
+			end := start + maxModelsPerBatch
+			if end > modelCount {
+				end = modelCount
+			}
+			batches[i] = models[start:end]
+		}
+	}
+
+	token, err := client.configuration.getBearerToken()
+	if err != nil {
+		return err
+	}
+
+	endpoint := client.getModelUrl(nil, nil)
+
+	// Upload each batch
+	for i := range batches {
+		requestBody, err := json.Marshal(batchToJsonArray(batches[i]))
+		if err != nil {
+			return fmt.Errorf("unable to convert batch to JSON: %s", err)
+		}
+
+		req, _ := http.NewRequest("POST", endpoint, bytes.NewBuffer(requestBody))
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.Token))
+		req.Header.Set("Content-Type", "application/json")
+
+		log.Printf("Uploading batch %d/%d", i+1, len(batches))
+		resp, err := client.httpClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("unable to upload models: %s", err)
+		} else if resp.StatusCode != 201 {
+			return handleResponseError(resp)
+		}
+	}
+
+	return nil
+}
+
+// Converts a batch of modelEntry objects to an array of jsonObject items which can be converted into
+// a JSON body
+func batchToJsonArray(batch []*modelEntry) []jsonObject {
+	content := make([]jsonObject, len(batch))
+	for i := range batch {
+		content[i] = batch[i].model
+	}
+	return content
 }
 
 // In the event of an API error response, this handles it at returns an error detailing the error

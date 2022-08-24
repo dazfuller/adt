@@ -80,14 +80,18 @@ func main() {
 	var clientId string
 	var clientSecret string
 	var verbose bool
+	var source cli.ModelDirectory
 
 	var selectedFlagSet *flag.FlagSet = nil
 
 	listCommand := flag.NewFlagSet("list", flag.ExitOnError)
 	clearCommand := flag.NewFlagSet("clear", flag.ExitOnError)
+	uploadCommand := flag.NewFlagSet("upload", flag.ExitOnError)
+
+	uploadCommand.Var(&source, "source", "Directory containing the model files to upload")
 
 	// Set up common flags
-	for _, fs := range []*flag.FlagSet{listCommand, clearCommand} {
+	for _, fs := range []*flag.FlagSet{listCommand, clearCommand, uploadCommand} {
 		fs.StringVar(&adtEndpoint, "endpoint", "", "Endpoint of the Azure digital twin instance (e.g. https://my-twin.api.weu.digitaltwins.azure.net)")
 		fs.BoolVar(&useAzureCliCredentials, "use-cli", false, "Indicates if the credentials of the Azure CLI should be used")
 		fs.StringVar(&tenantId, "tenant", "", "ID of the tenant to authenticate the client credentials against")
@@ -115,6 +119,13 @@ func main() {
 		}
 		_ = clearCommand.Parse(os.Args[2:])
 		selectedFlagSet = clearCommand
+	case "upload":
+		if len(os.Args) < 5 {
+			uploadCommand.Usage()
+			os.Exit(-1)
+		}
+		_ = uploadCommand.Parse(os.Args[2:])
+		selectedFlagSet = uploadCommand
 	default:
 		highLevelUsageAndExit()
 	}
@@ -138,6 +149,12 @@ func main() {
 		}
 	} else if clearCommand.Parsed() {
 		err := cli.ClearModels(adtEndpoint, authenticationMethod)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(-2)
+		}
+	} else if uploadCommand.Parsed() {
+		err := cli.UploadModels(adtEndpoint, authenticationMethod, source)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(-2)
