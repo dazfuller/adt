@@ -1,0 +1,22 @@
+{
+  "invalidIdentifierProperty": "dtmi:digitaltwins:testing:core:building;2",
+  "@type": "Interface",
+  "displayName": {
+    "en": "Building"
+  },
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "name",
+      "schema": "string",
+      "writeable": true,
+      "description": {
+        "en": "Name of the building"
+      },
+      "displayName": {
+        "en": "Building name"
+      }
+    }
+  ],
+  "context": "dtmi:dtdl:context;2"
+}

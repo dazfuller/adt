@@ -78,7 +78,11 @@ func (directory *ModelDirectory) getModels() ([]*modelEntry, error) {
 
 			_, ok := jsonContent["@id"]
 			if !ok {
-				log.Printf("Ignoring file '%s' as it does not contain a valid DTDL document as it is missing the @id property", path)
+				_, ok = jsonContent["id"]
+			}
+			if !ok {
+				log.Printf("Ignoring file '%s' as it does not contain a valid DTDL document as it is missing the @id/id property", path)
+				return nil
 			}
 
 			entry, _ := newModelEntry(jsonContent)

@@ -1,0 +1,29 @@
+{
+  "@id": "dtmi:digitaltwins:testing:core:building;1",
+  "@type": "Interface",
+  "displayName": {
+    "en": "Building"
+  },
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "name",
+      "schema": "string",
+      "writeable": true,
+      "description": {
+        "en": "Name of the building"
+      },
+      "displayName": {
+        "en": "Building name"
+      }
+    },
+    {
+      "@type": "Relationship",
+      "@id": "dtmi:digitaltwins:testing:building:hasLevels;1",
+      "name": "hasLevels",
+      "displayName": "Building has levels",
+      "target": "dtmi:digitaltwins:testing:core:level;1"
+    }
+  ],
+  "context": "dtmi:dtdl:context;2"
+}

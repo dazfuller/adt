@@ -1,0 +1,22 @@
+{
+  "id": "dtmi:digitaltwins:testing:core:room;1",
+  "@type": "Interface",
+  "displayName": {
+    "en": "Level"
+  },
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "name",
+      "schema": "string",
+      "writeable": true,
+      "description": {
+        "en": "Name of the room"
+      },
+      "displayName": {
+        "en": "Room name"
+      }
+    }
+  ],
+  "context": "dtmi:dtdl:context;2"
+}

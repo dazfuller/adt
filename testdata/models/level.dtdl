@@ -1,0 +1,29 @@
+{
+  "id": "dtmi:digitaltwins:testing:core:level;1",
+  "@type": "Interface",
+  "displayName": {
+    "en": "Level"
+  },
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "name",
+      "schema": "string",
+      "writeable": true,
+      "description": {
+        "en": "Name of the level"
+      },
+      "displayName": {
+        "en": "Level name"
+      }
+    },
+    {
+      "@type": "Relationship",
+      "@id": "dtmi:digitaltwins:testing:level:hasRooms;1",
+      "name": "hasRooms",
+      "displayName": "Level has rooms",
+      "target": "dtmi:digitaltwins:testing:core:room;1"
+    }
+  ],
+  "context": "dtmi:dtdl:context;2"
+}
