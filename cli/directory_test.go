@@ -57,14 +57,22 @@ func TestModelDirectory_getModels(t *testing.T) {
 	d := ModelDirectory{}
 	_ = d.Set(input)
 
+	expectedCount := 5
+
 	models, err := d.getModels()
 	if err != nil {
 		t.Errorf("Expected a collection of models, but received error: %s", err)
-	} else if len(models) != 3 {
-		t.Errorf("Expected 3 models but got %d", len(models))
+	} else if len(models) != expectedCount {
+		t.Errorf("Expected %d models but got %d", expectedCount, len(models))
 	}
 
-	expectedIds := []string{"dtmi:digitaltwins:testing:core:building;1", "dtmi:digitaltwins:testing:core:level;1", "dtmi:digitaltwins:testing:core:room;1"}
+	expectedIds := []string{
+		"dtmi:digitaltwins:testing:core:space;1",
+		"dtmi:digitaltwins:testing:core:building;1",
+		"dtmi:digitaltwins:testing:core:level;1",
+		"dtmi:digitaltwins:testing:core:room;1",
+		"dtmi:digitaltwins:testing:core:meetingroom;1",
+	}
 	for _, id := range expectedIds {
 		found := false
 		for _, m := range models {

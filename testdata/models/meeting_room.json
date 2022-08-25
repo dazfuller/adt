@@ -1,0 +1,24 @@
+{
+  "@id": "dtmi:digitaltwins:testing:core:meetingroom;1",
+  "@type": "Interface",
+  "displayName": {
+    "en": "Meeting Room"
+  },
+  "content": [
+    {
+      "@type": "Property",
+      "name": "capacity",
+      "schema": "integer",
+      "displayName": {
+        "en": "Capacity"
+      },
+      "description": {
+        "en": "Maximum occupancy for the meeting room"
+      }
+    }
+  ],
+  "context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:digitaltwins:testing:core:room;1"
+  ]
+}

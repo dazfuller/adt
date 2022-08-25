@@ -1,0 +1,22 @@
+{
+  "@id": "dtmi:digitaltwins:testing:core:space;1",
+  "@type": "Interface",
+  "displayName": {
+    "en": "Space"
+  },
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "name",
+      "schema": "string",
+      "writeable": true,
+      "description": {
+        "en": "Name of the twin"
+      },
+      "displayName": {
+        "en": "Name"
+      }
+    }
+  ],
+  "context": "dtmi:dtdl:context;2"
+}

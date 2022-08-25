@@ -4,19 +4,9 @@
   "displayName": {
     "en": "Level"
   },
-  "contents": [
-    {
-      "@type": "Property",
-      "name": "name",
-      "schema": "string",
-      "writeable": true,
-      "description": {
-        "en": "Name of the room"
-      },
-      "displayName": {
-        "en": "Room name"
-      }
-    }
-  ],
-  "context": "dtmi:dtdl:context;2"
+  "contents": [],
+  "context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:digitaltwins:testing:core:space;1"
+  ]
 }
