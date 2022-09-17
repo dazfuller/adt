@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 )
@@ -28,6 +29,10 @@ func (object *jsonObject) getModelId() (*string, error) {
 	}
 	id := idToken.(string)
 	return &id, nil
+}
+
+func (object *jsonObject) ToJson() ([]byte, error) {
+	return json.MarshalIndent(object, "", "  ")
 }
 
 // Represents a model entry, including its modelId, dependencies, and status

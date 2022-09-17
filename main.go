@@ -10,33 +10,6 @@ import (
 	"strings"
 )
 
-type directory struct {
-	Path      string
-	Validated bool
-}
-
-func (d *directory) String() string {
-	return d.Path
-}
-
-func (d *directory) Set(path string) error {
-	if len(path) == 0 {
-		return fmt.Errorf("a path must be specified")
-	}
-
-	folderInfo, err := os.Stat(path)
-	if err != nil && os.IsNotExist(err) {
-		return fmt.Errorf("the specified path does not exist")
-	} else if err != nil {
-		return fmt.Errorf("an error occured validating the path")
-	} else if !folderInfo.IsDir() {
-		return fmt.Errorf("the path specified is not a directory")
-	}
-
-	*d = directory{Path: path, Validated: true}
-	return nil
-}
-
 func validateCredentials(adtEndpoint string, useAzureCliCredentials bool, tenantId string, clientId string, clientSecret string) (*cli.AuthenticationMethod, error) {
 	if len(adtEndpoint) == 0 {
 		return nil, fmt.Errorf("the Azure Digital Twin endpoint must be set")
@@ -68,30 +41,33 @@ func validateCredentials(adtEndpoint string, useAzureCliCredentials bool, tenant
 }
 
 func highLevelUsageAndExit() {
-	fmt.Println("Expected list, clear, or upload commands to be provided")
+	fmt.Println("Expected list, clear, download, or upload commands to be provided")
 	os.Exit(0)
 }
 
 func main() {
 	var adtEndpoint string
-	//var sourceDirectory directory
 	var useAzureCliCredentials bool
 	var tenantId string
 	var clientId string
 	var clientSecret string
 	var verbose bool
 	var source cli.ModelDirectory
+	var fileExtension string
 
 	var selectedFlagSet *flag.FlagSet = nil
 
 	listCommand := flag.NewFlagSet("list", flag.ExitOnError)
 	clearCommand := flag.NewFlagSet("clear", flag.ExitOnError)
 	uploadCommand := flag.NewFlagSet("upload", flag.ExitOnError)
+	downloadCommand := flag.NewFlagSet("download", flag.ExitOnError)
 
 	uploadCommand.Var(&source, "source", "Directory containing the model files to upload")
+	downloadCommand.Var(&source, "output", "Directory to write models to during download")
+	downloadCommand.StringVar(&fileExtension, "ext", "dtdl", "File extension to use for files downloaded (valid values are 'dtdl' or 'json')")
 
 	// Set up common flags
-	for _, fs := range []*flag.FlagSet{listCommand, clearCommand, uploadCommand} {
+	for _, fs := range []*flag.FlagSet{listCommand, clearCommand, uploadCommand, downloadCommand} {
 		fs.StringVar(&adtEndpoint, "endpoint", "", "Endpoint of the Azure digital twin instance (e.g. https://my-twin.api.weu.digitaltwins.azure.net)")
 		fs.BoolVar(&useAzureCliCredentials, "use-cli", false, "Indicates if the credentials of the Azure CLI should be used")
 		fs.StringVar(&tenantId, "tenant", "", "ID of the tenant to authenticate the client credentials against")
@@ -126,6 +102,17 @@ func main() {
 		}
 		_ = uploadCommand.Parse(os.Args[2:])
 		selectedFlagSet = uploadCommand
+	case "download":
+		if len(os.Args) < 5 {
+			downloadCommand.Usage()
+			os.Exit(-1)
+		}
+		if strings.ToLower(fileExtension) != "dtdl" && strings.ToLower(fileExtension) != "json" {
+			downloadCommand.Usage()
+			os.Exit(-1)
+		}
+		_ = downloadCommand.Parse(os.Args[2:])
+		selectedFlagSet = downloadCommand
 	default:
 		highLevelUsageAndExit()
 	}
@@ -155,6 +142,12 @@ func main() {
 		}
 	} else if uploadCommand.Parsed() {
 		err := cli.UploadModels(adtEndpoint, authenticationMethod, source)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(-2)
+		}
+	} else if downloadCommand.Parsed() {
+		err := cli.DownloadModels(adtEndpoint, authenticationMethod, source, fileExtension)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(-2)

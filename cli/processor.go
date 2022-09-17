@@ -2,6 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 // ListModels retrieves all models which have been created against the Azure Digital Twin endpoint using the
@@ -85,6 +88,63 @@ func UploadModels(endpoint string, method *AuthenticationMethod, source ModelDir
 	}
 
 	fmt.Printf("Successfully uploaded models from %s\n", source.Path)
+
+	return nil
+}
+
+func DownloadModels(endpoint string, method *AuthenticationMethod, output ModelDirectory, fileExtension string) error {
+	fileExtensionLower := strings.TrimPrefix(strings.ToLower(fileExtension), ".")
+	if fileExtensionLower != "json" && fileExtensionLower != "dtdl" {
+		return fmt.Errorf("file extension '%s' is not valid, only 'json' or 'dtdl' should be provided", fileExtensionLower)
+	}
+
+	config, _ := newTwinConfiguration(endpoint, method)
+	client := newClient(config)
+
+	models, err := client.listModels()
+	if err != nil {
+		return fmt.Errorf("an error occured listing models in the twin: %s", err)
+	}
+
+	if len(models) == 0 {
+		return nil
+	}
+
+	err = os.RemoveAll(output.Path)
+	if err != nil {
+		return fmt.Errorf("unable to clear output directory %s. %s", output, err)
+	}
+
+	err = os.Mkdir(output.Path, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("unable to create output directory %s. %s", output, err)
+	}
+
+	for _, model := range models {
+		nameParts := strings.Split(model.modelId, ":")
+		dirParts := nameParts[:len(nameParts)-1]
+		for i := range dirParts {
+			dirParts[i] = strings.ToLower(dirParts[i])
+		}
+		filename := fmt.Sprintf("%s.%s", strings.ReplaceAll(nameParts[len(nameParts)-1], ";", "_"), fileExtensionLower)
+		outputDir := filepath.Join(output.Path, filepath.Join(dirParts...))
+		outputFilePath := filepath.Join(outputDir, filename)
+
+		err = os.MkdirAll(outputDir, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("unable to create directory %s: %s", outputDir, err)
+		}
+
+		modelContent, err := model.model.ToJson()
+		if err != nil {
+			return fmt.Errorf("unable to parse content of model %s. %s", model.modelId, err)
+		}
+
+		err = os.WriteFile(outputFilePath, modelContent, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("unable to write content of model %s to %s. %s", model.modelId, outputFilePath, err)
+		}
+	}
 
 	return nil
 }
