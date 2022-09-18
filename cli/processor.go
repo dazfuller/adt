@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,7 +93,14 @@ func UploadModels(endpoint string, method *AuthenticationMethod, source ModelDir
 	return nil
 }
 
+// DownloadModels reads all models from the Digital Twin instance into the output location using the fileExtension
+// specified.
+//
+// The download structure will be based on the model name structure broken apart by the colon and the
+// semicolon, and so a model id of "dtmi:rec33:architectural:building;1" will become the following path
+// "dtmi/rec33/architectural/building_1.dtdl" (assuming a file extension of 'dtdl')
 func DownloadModels(endpoint string, method *AuthenticationMethod, output ModelDirectory, fileExtension string) error {
+	// Validate the file extension
 	fileExtensionLower := strings.TrimPrefix(strings.ToLower(fileExtension), ".")
 	if fileExtensionLower != "json" && fileExtensionLower != "dtdl" {
 		return fmt.Errorf("file extension '%s' is not valid, only 'json' or 'dtdl' should be provided", fileExtensionLower)
@@ -106,10 +114,12 @@ func DownloadModels(endpoint string, method *AuthenticationMethod, output ModelD
 		return fmt.Errorf("an error occured listing models in the twin: %s", err)
 	}
 
+	// If there's no models to download then exit here
 	if len(models) == 0 {
 		return nil
 	}
 
+	// Clear anything in the output path
 	err = os.RemoveAll(output.Path)
 	if err != nil {
 		return fmt.Errorf("unable to clear output directory %s. %s", output, err)
@@ -120,12 +130,17 @@ func DownloadModels(endpoint string, method *AuthenticationMethod, output ModelD
 		return fmt.Errorf("unable to create output directory %s. %s", output, err)
 	}
 
+	// Process each model
 	for _, model := range models {
 		nameParts := strings.Split(model.modelId, ":")
 		dirParts := nameParts[:len(nameParts)-1]
+
+		// Lower case the path
 		for i := range dirParts {
 			dirParts[i] = strings.ToLower(dirParts[i])
 		}
+
+		// Generate the file name, output directory, and full output path
 		filename := fmt.Sprintf("%s.%s", strings.ReplaceAll(nameParts[len(nameParts)-1], ";", "_"), fileExtensionLower)
 		outputDir := filepath.Join(output.Path, filepath.Join(dirParts...))
 		outputFilePath := filepath.Join(outputDir, filename)
@@ -140,6 +155,7 @@ func DownloadModels(endpoint string, method *AuthenticationMethod, output ModelD
 			return fmt.Errorf("unable to parse content of model %s. %s", model.modelId, err)
 		}
 
+		log.Printf("Writing model %s to %s", model.modelId, outputFilePath)
 		err = os.WriteFile(outputFilePath, modelContent, os.ModePerm)
 		if err != nil {
 			return fmt.Errorf("unable to write content of model %s to %s. %s", model.modelId, outputFilePath, err)
