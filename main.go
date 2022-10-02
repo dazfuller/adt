@@ -41,7 +41,21 @@ func validateCredentials(adtEndpoint string, useAzureCliCredentials bool, tenant
 }
 
 func highLevelUsageAndExit() {
-	fmt.Println("Expected list, clear, download, or upload commands to be provided")
+	fmt.Println("Azure Digital Twin - Model CLI utility.")
+	fmt.Println("Provides methods for working with the Azure Digital Twin management plane for carrying out common activities with models")
+	fmt.Println("This is intended to provide simpler solutions to existing features in the SDK or existing Azure CLI")
+	fmt.Println("(such as model sorting to ensure that they are uploaded/deleted in dependency order)")
+	fmt.Println()
+	fmt.Println("List of commands:")
+	fmt.Println("  clear")
+	fmt.Println("        Removes all models from the Azure Digital Twin instance")
+	fmt.Println("  download")
+	fmt.Println("        Downloads all models from the Azure Digital Twin instance and structures them in the output location based on their model id")
+	fmt.Println("  list")
+	fmt.Println("        Lists the model ids currently deployed to the Azure Digital Twin instance")
+	fmt.Println("  upload")
+	fmt.Println("        Uploads a set of models from local storage to the Azure Digital Twin instance")
+	fmt.Println()
 	os.Exit(0)
 }
 
