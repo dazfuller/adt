@@ -139,6 +139,7 @@ func (client *client) uploadModels(models []*modelEntry) error {
 	// Sort the models into batches based on the limits
 	if modelCount < maxModelsApiLimit {
 		batches = make([][]*modelEntry, 1)
+		batches[0] = models
 	} else {
 		batchCount := int(math.Ceil(float64(modelCount) / float64(maxModelsPerBatch)))
 		batches = make([][]*modelEntry, batchCount)
