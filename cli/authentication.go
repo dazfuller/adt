@@ -8,6 +8,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"log"
 	"net/url"
+	"time"
 )
 
 const (
@@ -32,6 +33,7 @@ type twinConfiguration struct {
 	clientSecret string   // The secret of the client used for client credential authentication
 	scopes       []string // The scopes to create an authentication token for
 	authorityUrl url.URL  // Authority URL required for authenticating the user
+	token        *azcore.AccessToken
 }
 
 // Creates a new twinConfiguration instance using the endpoint and AuthenticationMethod information provided
@@ -76,6 +78,11 @@ func (configuration *twinConfiguration) setAdtEndpoint(endpoint string) error {
 
 // Gets a bearer token for the twinConfiguration instance
 func (configuration *twinConfiguration) getBearerToken() (*azcore.AccessToken, error) {
+	if configuration.token != nil && configuration.token.ExpiresOn.After(time.Now().UTC()) {
+		log.Print("Using existing token")
+		return configuration.token, nil
+	}
+
 	var credentials azcore.TokenCredential
 	var err error
 	if configuration.useAzureCli {
@@ -97,6 +104,8 @@ func (configuration *twinConfiguration) getBearerToken() (*azcore.AccessToken, e
 	if err != nil {
 		return nil, fmt.Errorf("unable to acquire token for Azure Digital Twin scope: %s", err)
 	}
+
+	configuration.token = &token
 
 	return &token, nil
 }

@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 const (
@@ -17,9 +18,9 @@ const (
 	apiVersion        = "2020-10-31" // Digital Twin Rest API version to use
 )
 
-// pagedDigitalTwinsModelDataCollection defines a paged response from the Azure Digital Twin GET model API. It contains
+// pagedResponse defines a paged response from the Azure Digital Twin GET model API. It contains
 // a list of digital twin models, and a continuation token to retrieve more results
-type pagedDigitalTwinsModelDataCollection struct {
+type pagedResponse struct {
 	NextLink string       `json:"nextLink"` // The continuation token if provided
 	Value    []jsonObject `json:"value"`    // Collection of models
 }
@@ -38,16 +39,19 @@ func newClient(configuration *twinConfiguration) *client {
 	}
 }
 
-// Gets the URL required to access the Azure Digital Twin model API with the api-version information. It takes an
-// optional modelId for when a single model is being accessed, and an optional parameters parameter for additional
-// parameters needed to be passed to the API
-func (client *client) getModelUrl(modelId *string, parameters *map[string]string) string {
+func (client *client) getDataPlaneUrl(pathRoute string, identifier *string, pathSuffixes []string, parameters *map[string]string) string {
 	endpoint := client.configuration.endpoint
-	if modelId == nil || len(*modelId) == 0 {
-		endpoint.Path = "/models"
-	} else {
-		endpoint.Path = fmt.Sprintf("/models/%s", *modelId)
+	pathParts := []string{pathRoute}
+
+	if identifier != nil && len(*identifier) > 0 {
+		pathParts = append(pathParts, *identifier)
 	}
+
+	if pathSuffixes != nil {
+		pathParts = append(pathParts, pathSuffixes...)
+	}
+
+	endpoint.Path = strings.Join(pathParts, "/")
 
 	params := url.Values{}
 	params.Add("api-version", apiVersion)
@@ -60,6 +64,20 @@ func (client *client) getModelUrl(modelId *string, parameters *map[string]string
 
 	endpoint.RawQuery = params.Encode()
 	return endpoint.String()
+}
+
+// Gets the URL required to access the Azure Digital Twin model API with the api-version information. It takes an
+// optional modelId for when a single model is being accessed, and an optional parameters parameter for additional
+// parameters needed to be passed to the API
+func (client *client) getModelUrl(modelId *string, parameters *map[string]string) string {
+	return client.getDataPlaneUrl("model", modelId, nil, parameters)
+}
+
+// Gets the URL required to access the Azure Digital Twin digitaltwins API with the api-version information. It takes
+// an optional twinId for when a single model is being accessed, and an optional parameters parameter for additional
+// parameters needed to be passed to the API
+func (client *client) getTwinsUrl(twinId *string, pathSuffixes []string, parameters *map[string]string) string {
+	return client.getDataPlaneUrl("digitaltwins", twinId, pathSuffixes, parameters)
 }
 
 // Gets all the models from the Azure Digital Twin instance
@@ -87,7 +105,7 @@ func (client *client) listModels() ([]*modelEntry, error) {
 			return nil, handleResponseError(resp)
 		}
 
-		var pagedResult pagedDigitalTwinsModelDataCollection
+		var pagedResult pagedResponse
 		respContent, _ := io.ReadAll(resp.Body)
 		_ = json.Unmarshal(respContent, &pagedResult)
 
@@ -191,6 +209,122 @@ func batchToJsonArray(batch []*modelEntry) []jsonObject {
 		content[i] = batch[i].model
 	}
 	return content
+}
+
+func (client *client) getTwinById(id string) (*jsonObject, error) {
+	endpoint := client.getTwinsUrl(&id, nil, nil)
+
+	req, err := client.getRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("Requesting digital twin for %s", id)
+	resp, err := client.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve model %s: %s", id, err)
+	} else if resp.StatusCode != 200 {
+		return nil, handleResponseError(resp)
+	}
+
+	var result jsonObject
+	respContent, _ := io.ReadAll(resp.Body)
+	_ = json.Unmarshal(respContent, &result)
+
+	return &result, nil
+}
+
+func (client *client) getTwinRelationships(id string, isIncoming bool) ([]*jsonObject, error) {
+	results := make([]*jsonObject, 0)
+
+	var suffix string
+
+	if isIncoming {
+		suffix = "incomingrelationships"
+	} else {
+		suffix = "relationships"
+	}
+
+	endpoint := client.getTwinsUrl(&id, []string{suffix}, nil)
+
+	for {
+		req, err := client.getRequest("GET", endpoint, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		log.Printf("Requesting digital twin relationships for %s: %s", id, endpoint)
+
+		resp, err := client.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve relationships %s: %s", id, err)
+		} else if resp.StatusCode != 200 {
+			return nil, handleResponseError(resp)
+		}
+
+		var pagedResult pagedResponse
+		respContent, _ := io.ReadAll(resp.Body)
+		_ = json.Unmarshal(respContent, &pagedResult)
+
+		for i := range pagedResult.Value {
+			relationship := &pagedResult.Value[i]
+			if isIncoming {
+				relationship, err = client.getRelationshipFromListResponse(&pagedResult.Value[i])
+				if err != nil {
+					return nil, err
+				}
+			}
+			results = append(results, relationship)
+		}
+
+		endpoint = pagedResult.NextLink
+
+		if len(endpoint) == 0 {
+			break
+		}
+	}
+
+	return results, nil
+}
+
+func (client *client) getRelationshipFromListResponse(listItem *jsonObject) (*jsonObject, error) {
+	endpoint := (*listItem)["$relationshipLink"].(string)
+	id := (*listItem)["$sourceId"].(string)
+
+	req, err := client.getRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve model %s: %s", id, err)
+	} else if resp.StatusCode != 200 {
+		return nil, handleResponseError(resp)
+	}
+
+	var result jsonObject
+	respContent, _ := io.ReadAll(resp.Body)
+	_ = json.Unmarshal(respContent, &result)
+
+	return &result, nil
+}
+
+func (client *client) getRequest(method string, endpoint string, body []byte) (*http.Request, error) {
+	token, err := client.configuration.getBearerToken()
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(method, endpoint, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.Token))
+	req.Header.Set("Content-Type", "application/json")
+
+	return req, nil
 }
 
 // In the event of an API error response, this handles it at returns an error detailing the error

@@ -1,12 +1,33 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+type SectionHeader struct {
+	Section string `json:"Section"`
+}
+
+func (sh *SectionHeader) ToJsonLine() []byte {
+	content, _ := json.Marshal(sh)
+	return content
+}
+
+type TwinFileInfo struct {
+	FileVersion  string `json:"fileVersion"`
+	Author       string `json:"author"`
+	Organization string `json:"organization"`
+}
+
+func (tf *TwinFileInfo) ToJsonLine() []byte {
+	content, _ := json.Marshal(tf)
+	return content
+}
 
 // ListModels retrieves all models which have been created against the Azure Digital Twin endpoint using the
 // authentication method provided
@@ -160,6 +181,122 @@ func DownloadModels(endpoint string, method *AuthenticationMethod, output ModelD
 		if err != nil {
 			return fmt.Errorf("unable to write content of model %s to %s. %s", model.modelId, outputFilePath, err)
 		}
+	}
+
+	return nil
+}
+
+func GetTwin(twinId string, endpoint string, method *AuthenticationMethod) error {
+	config, _ := newTwinConfiguration(endpoint, method)
+	client := newClient(config)
+
+	twins := make(map[string]*jsonObject)
+	relationships := make(map[string]*jsonObject)
+
+	err := getTwinsByIds(client, twins, relationships, twinId)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create("twin-export.ndjson")
+	fmt.Printf("Writing to: %s\n", f.Name())
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	// TODO: replace with writing to output file
+	headerSection := SectionHeader{Section: "Header"}
+	twinsSection := SectionHeader{Section: "Twins"}
+	relationshipsSection := SectionHeader{Section: "Relationships"}
+	twinFileInfo := TwinFileInfo{
+		FileVersion:  "1.0.0",
+		Author:       "Darren Fuller",
+		Organization: "Intelligent Spaces",
+	}
+
+	_, _ = fmt.Fprintln(f, string(headerSection.ToJsonLine()))
+	_, _ = fmt.Fprintln(f, string(twinFileInfo.ToJsonLine()))
+
+	_, _ = fmt.Fprintln(f, string(twinsSection.ToJsonLine()))
+	for _, twin := range twins {
+		if _, ok := (*twin)["$etag"]; ok {
+			delete(*twin, "$etag")
+		}
+		content, _ := twin.ToJsonLine()
+		_, _ = fmt.Fprintln(f, string(content))
+	}
+
+	_, _ = fmt.Fprintln(f, string(relationshipsSection.ToJsonLine()))
+	for _, relationship := range relationships {
+		if _, ok := (*relationship)["$etag"]; ok {
+			delete(*relationship, "$etag")
+		}
+		content, _ := relationship.ToJsonLine()
+		_, _ = fmt.Fprintln(f, string(content))
+	}
+
+	return nil
+}
+
+func getTwinsByIds(client *client, twins map[string]*jsonObject, relationships map[string]*jsonObject, twinIds ...string) error {
+	twinsToCollect := make([]string, 0)
+
+	for _, twinId := range twinIds {
+		if _, exists := twins[twinId]; exists {
+			continue
+		}
+		fmt.Printf("Getting twin %s\n", twinId)
+		twin, err := client.getTwinById(twinId)
+		if err != nil {
+			return err
+		}
+
+		dtId := (*twin)["$dtId"].(string)
+		if _, ok := twins[dtId]; !ok {
+			twins[dtId] = twin
+		}
+
+		outRelationships, err := client.getTwinRelationships(twinId, false)
+		if err != nil {
+			return err
+		}
+
+		for i := range outRelationships {
+			relationshipId := (*outRelationships[i])["$relationshipId"].(string)
+			targetId := (*outRelationships[i])["$targetId"].(string)
+
+			if _, ok := relationships[relationshipId]; !ok {
+				relationships[relationshipId] = outRelationships[i]
+			}
+
+			if _, ok := twins[targetId]; !ok {
+				twinsToCollect = append(twinsToCollect, targetId)
+			}
+		}
+
+		inRelationships, err := client.getTwinRelationships(twinId, true)
+		if err != nil {
+			return err
+		}
+
+		for i := range inRelationships {
+			relationshipId := (*inRelationships[i])["$relationshipId"].(string)
+			sourceId := (*inRelationships[i])["$sourceId"].(string)
+
+			if _, ok := relationships[relationshipId]; !ok {
+				relationships[relationshipId] = inRelationships[i]
+			}
+
+			if _, ok := twins[sourceId]; !ok {
+				twinsToCollect = append(twinsToCollect, sourceId)
+			}
+		}
+	}
+
+	if len(twinsToCollect) > 0 {
+		err := getTwinsByIds(client, twins, relationships, twinsToCollect...)
+		return err
 	}
 
 	return nil

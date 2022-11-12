@@ -55,6 +55,8 @@ func highLevelUsageAndExit() {
 	fmt.Println("        Lists the model ids currently deployed to the Azure Digital Twin instance")
 	fmt.Println("  upload")
 	fmt.Println("        Uploads a set of models from local storage to the Azure Digital Twin instance")
+	fmt.Println("  twin")
+	fmt.Println("        Exports a digital twin from a given id")
 	fmt.Println()
 	os.Exit(0)
 }
@@ -68,6 +70,7 @@ func main() {
 	var verbose bool
 	var source cli.ModelDirectory
 	var fileExtension string
+	var twinId string
 
 	var selectedFlagSet *flag.FlagSet = nil
 
@@ -75,13 +78,15 @@ func main() {
 	clearCommand := flag.NewFlagSet("clear", flag.ExitOnError)
 	uploadCommand := flag.NewFlagSet("upload", flag.ExitOnError)
 	downloadCommand := flag.NewFlagSet("download", flag.ExitOnError)
+	getTwinCommand := flag.NewFlagSet("twin", flag.ExitOnError)
 
 	uploadCommand.Var(&source, "source", "Directory containing the model files to upload")
 	downloadCommand.Var(&source, "output", "Directory to write models to during download")
 	downloadCommand.StringVar(&fileExtension, "ext", "dtdl", "File extension to use for files downloaded (valid values are 'dtdl' or 'json')")
+	getTwinCommand.StringVar(&twinId, "id", "1", "Id of the twin to download")
 
 	// Set up common flags
-	for _, fs := range []*flag.FlagSet{listCommand, clearCommand, uploadCommand, downloadCommand} {
+	for _, fs := range []*flag.FlagSet{listCommand, clearCommand, uploadCommand, downloadCommand, getTwinCommand} {
 		fs.StringVar(&adtEndpoint, "endpoint", "", "Endpoint of the Azure digital twin instance (e.g. https://my-twin.api.weu.digitaltwins.azure.net)")
 		fs.BoolVar(&useAzureCliCredentials, "use-cli", false, "Indicates if the credentials of the Azure CLI should be used")
 		fs.StringVar(&tenantId, "tenant", "", "ID of the tenant to authenticate the client credentials against")
@@ -127,6 +132,13 @@ func main() {
 		}
 		_ = downloadCommand.Parse(os.Args[2:])
 		selectedFlagSet = downloadCommand
+	case "twin":
+		if len(os.Args) < 4 {
+			getTwinCommand.Usage()
+			os.Exit(-1)
+		}
+		_ = getTwinCommand.Parse(os.Args[2:])
+		selectedFlagSet = getTwinCommand
 	default:
 		highLevelUsageAndExit()
 	}
@@ -162,6 +174,12 @@ func main() {
 		}
 	} else if downloadCommand.Parsed() {
 		err := cli.DownloadModels(adtEndpoint, authenticationMethod, source, fileExtension)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(-2)
+		}
+	} else if getTwinCommand.Parsed() {
+		err := cli.GetTwin(twinId, adtEndpoint, authenticationMethod)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(-2)

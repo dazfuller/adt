@@ -35,6 +35,10 @@ func (object *jsonObject) ToJson() ([]byte, error) {
 	return json.MarshalIndent(object, "", "  ")
 }
 
+func (object *jsonObject) ToJsonLine() ([]byte, error) {
+	return json.Marshal(object)
+}
+
 // Represents a model entry, including its modelId, dependencies, and status
 type modelEntry struct {
 	model        jsonObject       // The object of the model
